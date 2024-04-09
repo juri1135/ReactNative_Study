@@ -1,12 +1,14 @@
-import React, { useState, useRef } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
-
+import React, { useState, useRef, useEffect } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
+import * as Location from 'expo-location';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef();
-
+  const [location, setLocation] = useState();
+  const [permissionStatus, setPermissionStatus] = useState(true);
+  const [city, setCity] = useState('Loading...');
   // 스크롤 이벤트 핸들러
   const handleScroll = (event) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -26,10 +28,41 @@ export default function App() {
     return <View style={styles.paginationContainer}>{indicators}</View>;
   };
 
+  //requestForegroundPermissionAsync()의 return 형식은  {"canAskAgain": true, "expires": "never", "granted": true, "status": "granted"}
+  const askForLocationPermission = async () => {
+    const { granted } = await Location.requestForegroundPermissionsAsync();
+    if (!granted) {
+      // 권한이 거부되었을 때
+      Alert.alert(
+        'Permission needed',
+        'This app needs location permission Please allow permission in your settings for this weather App',
+        [{ text: 'Cancel', style: 'cancel' }]
+      );
+    } else {
+      setPermissionStatus(true); // 권한 상태 업데이트
+    }
+    //getCurrentPositionAsync()의 return 형식은
+    //{"coords": {"accuracy": 35, "altitude": 27.172813415527344, "altitudeAccuracy": 16.900047302246094, "heading": -1,
+    //"latitude": 37.56097280419063, "longitude": 127.06319620266265, "speed": -1}, "timestamp": 1712650449426.6128}
+    const {
+      coords: { latitude, longitude },
+    } = await Location.getCurrentPositionAsync({ accuracy: 6 });
+    //[{"city": "서울특별시", "country": "대한민국", "district": "용답동", "isoCountryCode": "KR",
+    //"name": "자동차시장1길 49", "postalCode": "04808", "region": "서울특별시", "street": "자동차시장1길", "streetNumber": "49",
+    // "subregion": null, "timezone": "Asia/Seoul"}]
+
+    const location = await Location.reverseGeocodeAsync({ latitude, longitude }, { useGoogleMaps: false });
+    setCity(location[0].district);
+  };
+
+  useEffect(() => {
+    askForLocationPermission();
+  }, []);
+
   return (
     <View style={styles.normalContainer}>
       <View style={styles.city}>
-        <Text style={styles.cityName}>Seoul</Text>
+        <Text style={styles.cityName}>{city}</Text>
         <ScrollView
           horizontal
           pagingEnabled
