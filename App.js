@@ -1,12 +1,17 @@
+//-*-coding:utf-8-*-
 import React, { useState, useRef, useEffect } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, View, Alert, Image, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
+import Day from './day';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function App() {
+  //내 API를 aaplication에 두는 건 굉장히 위험한 행동! 어플리케이션 사용하는 사람들 중에 이 api key 알아낼 수 있는 사람 있을 수도
+  // 실제로는 서버에 둬야 함
+  const API_KEY = '57504f8e32d90bfb0fdf6b0757459b35';
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef();
-  const [location, setLocation] = useState();
+  const [days, setDays] = useState([]);
   const [permissionStatus, setPermissionStatus] = useState(true);
   const [city, setCity] = useState('Loading...');
   // 스크롤 이벤트 핸들러
@@ -15,11 +20,15 @@ export default function App() {
     const pageIndex = Math.floor(scrollPosition / SCREEN_WIDTH); // SCREEN_WIDTH를 사용
     setCurrentPage(pageIndex);
   };
+  //소수 첫 째 자리 반올림 함수
+  function roundToTwo(num) {
+    return Math.round(num * 10) / 10;
+  }
 
   // 페이지 인디케이터 렌더링 함수
   const renderPagination = () => {
     const indicators = [];
-    const numPages = 2; // 스크롤 뷰 안의 페이지 수
+    const numPages = days.length; // 스크롤 뷰 안의 페이지 수
 
     for (let i = 0; i < numPages; i++) {
       indicators.push(<View key={i} style={[styles.dot, currentPage === i && styles.activeDot]} />);
@@ -53,6 +62,14 @@ export default function App() {
 
     const location = await Location.reverseGeocodeAsync({ latitude, longitude }, { useGoogleMaps: false });
     setCity(location[0].district);
+    const { list } = await (
+      await fetch(
+        `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&lang=kr&units=metric`
+      )
+    ).json();
+    const filteredList = list.filter(({ dt_txt }) => dt_txt.endsWith('03:00:00'));
+    setDays(filteredList);
+    console.log(days[0].data.dt_txt.substring(5, 10));
   };
 
   useEffect(() => {
@@ -61,49 +78,72 @@ export default function App() {
 
   return (
     <View style={styles.normalContainer}>
-      <View style={styles.city}>
-        <Text style={styles.cityName}>{city}</Text>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          ref={scrollViewRef}
-        >
-          <View style={styles.weatherToday}>
-            <Text style={styles.Today}>04/09</Text>
-            <Text style={styles.tempToday}>27</Text>
-            <Text style={styles.descToday}>Sunny</Text>
-            <Text style={styles.highandlowToday}>Highest: 28 | Lowest: 23</Text>
-          </View>
-          <View style={styles.weatherToday}>
-            <Text style={styles.Today}>04/10</Text>
-            <Text style={styles.tempToday}>19</Text>
-            <Text style={styles.descToday}>Sunny</Text>
-            <Text style={styles.highandlowToday}>Highest: 23 | Lowest: 15</Text>
-          </View>
-        </ScrollView>
-        {renderPagination()}
-      </View>
+      {days.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color="white" size="large" />
 
-      <ScrollView style={styles.weather}>
-        <View style={styles.day}>
-          <Text style={styles.dayWeek}>수</Text>
-          <Text style={styles.descWeek}>Sunny ☀️</Text>
-          <Text style={styles.tempWeek}>19</Text>
+          <Image
+            style={{ color: 'white', width: 120, height: 120, marginBottom: -10 }}
+            source={require('C:/Users/labinno/juriWeather/free-icon-cat-3460276.png')}
+          />
+          <Text style={styles.loadingment}>위치 정보를 가져오는 중입니댱!</Text>
         </View>
-        <View style={styles.day}>
-          <Text style={styles.dayWeek}>목</Text>
-          <Text style={styles.descWeek}>Cloudy ⛅</Text>
-          <Text style={styles.tempWeek}>10</Text>
+      ) : (
+        <View>
+          <View style={styles.city}>
+            <Text style={styles.cityName}>{city}</Text>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              ref={scrollViewRef}
+            >
+              {days.map((day, index) => (
+                <Day
+                  key={index}
+                  icon={day.weather[0].icon}
+                  temp={roundToTwo(day.main.temp)}
+                  tempmax={roundToTwo(day.main.temp_max)}
+                  tempmin={roundToTwo(day.main.temp_min)}
+                  description={day.weather[0].description}
+                  date={new Date(day.dt * 1000).toDateString()}
+                />
+              ))}
+            </ScrollView>
+            {renderPagination()}
+          </View>
+          <ScrollView style={styles.weather}>
+            <View style={styles.day}>
+              <Text style={styles.dayWeek}>수</Text>
+              <Text style={styles.descWeek}>Sunny ☀️</Text>
+              <Text style={styles.tempWeek}>19</Text>
+            </View>
+            <View style={styles.day}>
+              <Text style={styles.dayWeek}>목</Text>
+              <Text style={styles.descWeek}>Cloudy ⛅</Text>
+              <Text style={styles.tempWeek}>10</Text>
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  //로딩
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center', // 세로 방향 가운데 정렬
+    alignItems: 'center', // 가로 방향 가운데 정렬
+    backgroundColor: 'rgba(60, 113, 168, 0.8)',
+  },
+  loadingment: {
+    color: 'white',
+    marginTop: 20,
+  },
   // 기존 스타일 유지
   paginationContainer: {
     flexDirection: 'row',
@@ -132,31 +172,6 @@ const styles = StyleSheet.create({
   cityName: {
     color: 'white',
     fontSize: 40,
-  },
-  //오늘의 기온 및 설명
-  weatherToday: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    width: SCREEN_WIDTH,
-  },
-  Today: {
-    marginTop: 10,
-    color: 'white',
-    fontSize: 20,
-  },
-  tempToday: {
-    color: 'white',
-    fontSize: 70,
-  },
-  descToday: {
-    color: 'white',
-    fontSize: 25,
-  },
-  highandlowToday: {
-    color: 'white',
-    fontSize: 15,
-    marginTop: 10,
   },
   //주차별 날씨
   weather: {
