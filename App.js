@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View, Alert, Image, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import Day from './day';
+import Week from './week';
+import { Fontisco } from '@expo/vector-icons';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function App() {
@@ -69,7 +71,6 @@ export default function App() {
     ).json();
     const filteredList = list.filter(({ dt_txt }) => dt_txt.endsWith('03:00:00'));
     setDays(filteredList);
-    console.log(days[0].data.dt_txt.substring(5, 10));
   };
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function App() {
           <ActivityIndicator color="white" size="large" />
 
           <Image
-            style={{ color: 'white', width: 120, height: 120, marginBottom: -10 }}
+            style={{ width: 120, height: 120, marginBottom: -10 }}
             source={require('C:/Users/labinno/juriWeather/free-icon-cat-3460276.png')}
           />
           <Text style={styles.loadingment}>위치 정보를 가져오는 중입니댱!</Text>
@@ -115,16 +116,15 @@ export default function App() {
             {renderPagination()}
           </View>
           <ScrollView style={styles.weather}>
-            <View style={styles.day}>
-              <Text style={styles.dayWeek}>수</Text>
-              <Text style={styles.descWeek}>Sunny ☀️</Text>
-              <Text style={styles.tempWeek}>19</Text>
-            </View>
-            <View style={styles.day}>
-              <Text style={styles.dayWeek}>목</Text>
-              <Text style={styles.descWeek}>Cloudy ⛅</Text>
-              <Text style={styles.tempWeek}>10</Text>
-            </View>
+            {days.map((day, index) => (
+              <Week
+                key={index}
+                icon={day.weather[0].icon}
+                tempmax={roundToTwo(day.main.temp_max)}
+                tempmin={roundToTwo(day.main.temp_min)}
+                date={new Date(day.dt * 1000).toDateString()}
+              />
+            ))}
           </ScrollView>
         </View>
       )}
@@ -178,23 +178,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(39, 111, 187, 0.8)',
     margin: 20,
     borderRadius: 10,
-  },
-  day: {
-    margin: 20,
-    flexDirection: 'row',
-  },
-  dayWeek: {
-    color: 'white',
-    fontSize: 20,
-    marginRight: 30,
-  },
-  descWeek: {
-    color: 'white',
-    fontSize: 15,
-    marginRight: 30,
-  },
-  tempWeek: {
-    color: 'white',
-    fontSize: 15,
   },
 });
